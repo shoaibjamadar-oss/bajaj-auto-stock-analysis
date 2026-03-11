@@ -10,7 +10,7 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error
 from datetime import timedelta
 
 # loading the dataset
-df = pd.read_csv("BAJAJ_AUTO.csv")
+df = pd.read_csv("bajaj_auto.csv")
 df.columns = df.columns.str.strip()
 
 # keeping only date and close price
