@@ -178,5 +178,3 @@ elif change < -1:
     print("The model shows a DOWNWARD trend")
 else:
     print("The model shows a STABLE trend")
-
-print("\nDone! All 4 graphs and forecast CSV saved in your folder.")
