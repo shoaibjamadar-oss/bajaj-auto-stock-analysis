@@ -9,136 +9,172 @@ from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from datetime import timedelta
 
-# ── LOAD DATA ──────────────────────────────────────────────────
+# loading the dataset
 df = pd.read_csv("bajaj_auto.csv")
 df.columns = df.columns.str.strip()
-df = df[['DATE', 'CLOSE']].rename(columns={'DATE': 'Date', 'CLOSE': 'Close'})
 
-# Remove commas from numbers and convert
+# keeping only date and close price
+df = df[['DATE', 'CLOSE']]
+df.columns = ['Date', 'Close']
+
+# removing commas from numbers like 9,800 -> 9800
 df['Close'] = df['Close'].astype(str).str.replace(',', '').str.strip()
 df['Close'] = pd.to_numeric(df['Close'], errors='coerce')
-df['Date']  = pd.to_datetime(df['Date'], dayfirst=True)
+df['Date'] = pd.to_datetime(df['Date'], dayfirst=True)
+
+# removing missing values
 df = df.dropna()
 df = df.sort_values('Date').reset_index(drop=True)
 
-print("Rows:", len(df))
+print("Data loaded successfully")
+print("Total rows:", len(df))
 print(df.head())
 
-# ── (i-c) CLOSING PRICE TREND ──────────────────────────────────
-plt.figure(figsize=(12, 4))
+# plotting closing price
+plt.figure(figsize=(12,5))
 plt.plot(df['Date'], df['Close'], color='blue')
-plt.title('BAJAJ-AUTO Closing Price - Past 1 Year')
+plt.title('BAJAJ-AUTO Closing Price')
 plt.xlabel('Date')
 plt.ylabel('Price (Rs)')
 plt.xticks(rotation=30)
-plt.grid(alpha=0.3)
+plt.grid(True)
 plt.tight_layout()
-plt.savefig('01_closing_price.png', dpi=150)
+plt.savefig('01_closing_price.png')
 plt.show()
-print("Saved: 01_closing_price.png")
 
-# ── (ii-a) ADF TEST ────────────────────────────────────────────
+# ADF test to check if data is stationary
 close = df['Close'].values
 
-r1 = adfuller(close)
-print("\nADF Test - Original Series")
-print("Test Statistic:", round(r1[0], 4))
-print("p-value:", round(r1[1], 4))
-print("Result:", "STATIONARY" if r1[1] < 0.05 else "NON-STATIONARY")
+adf1 = adfuller(close)
+print("\nADF Test on original data:")
+print("Test Statistic =", round(adf1[0], 4))
+print("p-value =", round(adf1[1], 4))
+if adf1[1] < 0.05:
+    print("Data is Stationary, d = 0")
+    d = 0
+else:
+    print("Data is Non-Stationary, d = 1")
+    d = 1
 
-r2 = adfuller(np.diff(close))
-print("\nADF Test - 1st Difference")
-print("Test Statistic:", round(r2[0], 4))
-print("p-value:", round(r2[1], 4))
-print("Result:", "STATIONARY" if r2[1] < 0.05 else "NON-STATIONARY")
+adf2 = adfuller(np.diff(close))
+print("\nADF Test after differencing:")
+print("p-value =", round(adf2[1], 4))
+if adf2[1] < 0.05:
+    print("Data is now Stationary")
 
-d = 0 if r1[1] < 0.05 else 1
-print("\nChosen d =", d)
+# ACF and PACF plots to find p and q
+if d == 1:
+    series = np.diff(close)
+else:
+    series = close
 
-# ── (ii-b) ACF AND PACF ────────────────────────────────────────
-series = np.diff(close) if d == 1 else close
-
-fig, axes = plt.subplots(1, 2, figsize=(12, 4))
-plot_acf(series,  lags=20, ax=axes[0], title='ACF Plot')
-plot_pacf(series, lags=20, ax=axes[1], title='PACF Plot', method='ywm')
+fig, axes = plt.subplots(1, 2, figsize=(12,4))
+plot_acf(series, lags=20, ax=axes[0])
+plot_pacf(series, lags=20, ax=axes[1], method='ywm')
+plt.suptitle('ACF and PACF Plots')
 plt.tight_layout()
-plt.savefig('02_acf_pacf.png', dpi=150)
+plt.savefig('02_acf_pacf.png')
 plt.show()
-print("Saved: 02_acf_pacf.png")
 
-p, q = 2, 2
-print(f"ARIMA order chosen: ({p},{d},{q})")
+# from ACF and PACF we selected p=2 and q=2
+p = 2
+q = 2
+print(f"\nARIMA order = ({p},{d},{q})")
 
-# ── (ii-c) FIT ARIMA ───────────────────────────────────────────
-split      = int(len(close) * 0.8)
-train      = close[:split]
-test       = close[split:]
+# splitting data into train and test
+split = int(len(close) * 0.8)
+train = close[:split]
+test = close[split:]
 train_dates = df['Date'].values[:split]
-test_dates  = df['Date'].values[split:]
+test_dates = df['Date'].values[split:]
 
-model  = ARIMA(train, order=(p, d, q))
-fitted = model.fit()
-pred   = fitted.forecast(steps=len(test))
+print("Train size:", len(train))
+print("Test size:", len(test))
 
+# fitting ARIMA model
+model = ARIMA(train, order=(p, d, q))
+result = model.fit()
+print(result.summary())
+
+# predicting on test data
+pred = result.forecast(steps=len(test))
+
+# calculating errors
 rmse = np.sqrt(mean_squared_error(test, pred))
-mae  = mean_absolute_error(test, pred)
+mae = mean_absolute_error(test, pred)
 mape = np.mean(np.abs((test - pred) / test)) * 100
-print(f"\nRMSE: {rmse:.2f} | MAE: {mae:.2f} | MAPE: {mape:.2f}%")
 
-plt.figure(figsize=(12, 4))
-plt.plot(train_dates, train, color='blue',  label='Train')
-plt.plot(test_dates,  test,  color='green', label='Actual')
-plt.plot(test_dates,  pred,  color='red', linestyle='--', label='Predicted')
-plt.title(f'ARIMA({p},{d},{q}) - Train vs Test | MAPE={mape:.2f}%')
+print("\nModel Performance:")
+print("RMSE =", round(rmse, 2))
+print("MAE =", round(mae, 2))
+print("MAPE =", round(mape, 2), "%")
+
+# plotting actual vs predicted
+plt.figure(figsize=(12,5))
+plt.plot(train_dates, train, color='blue', label='Train Data')
+plt.plot(test_dates, test, color='green', label='Actual')
+plt.plot(test_dates, pred, color='red', linestyle='--', label='Predicted')
+plt.title('ARIMA Model - Actual vs Predicted')
 plt.xlabel('Date')
 plt.ylabel('Price (Rs)')
 plt.legend()
 plt.xticks(rotation=30)
-plt.grid(alpha=0.3)
+plt.grid(True)
 plt.tight_layout()
-plt.savefig('03_arima_eval.png', dpi=150)
+plt.savefig('03_arima_eval.png')
 plt.show()
-print("Saved: 03_arima_eval.png")
 
-# ── (iii) 30-DAY FORECAST ──────────────────────────────────────
-full    = ARIMA(close, order=(p, d, q)).fit()
-fc      = full.get_forecast(steps=30)
-fc_vals = fc.predicted_mean
-fc_ci   = fc.conf_int(alpha=0.05)
+# forecasting next 30 days
+full_model = ARIMA(close, order=(p, d, q))
+full_result = full_model.fit()
 
-future = pd.bdate_range(start=df['Date'].max() + timedelta(days=1), periods=30)
+forecast = full_result.get_forecast(steps=30)
+forecast_values = forecast.predicted_mean
+conf = forecast.conf_int(alpha=0.05)
 
-fc_df = pd.DataFrame({
-    'Date':   future,
-    'Forecast': fc_vals,
-    'Lower':    fc_ci[:, 0],
-    'Upper':    fc_ci[:, 1]
+# creating future dates
+last_date = df['Date'].max()
+future_dates = pd.bdate_range(start=last_date + timedelta(days=1), periods=30)
+
+# saving forecast to csv
+forecast_df = pd.DataFrame({
+    'Date': future_dates,
+    'Forecasted Price': forecast_values,
+    'Lower Bound': conf[:, 0],
+    'Upper Bound': conf[:, 1]
 })
-fc_df.to_csv('forecast_30days.csv', index=False)
-print("\n30 Day Forecast:")
-print(fc_df[['Date', 'Forecast']].to_string(index=False))
-print("Saved: forecast_30days.csv")
+forecast_df.to_csv('forecast_30days.csv', index=False)
+print("\nForecast for next 30 days:")
+print(forecast_df[['Date', 'Forecasted Price']].to_string(index=False))
 
-plt.figure(figsize=(12, 5))
-plt.plot(df['Date'].tail(90), df['Close'].tail(90), color='blue', label='Last 90 Days')
-plt.plot(future, fc_vals, color='red', linestyle='--', marker='o', markersize=3, label='30-Day Forecast')
-plt.fill_between(future, fc_ci[:, 0], fc_ci[:, 1], alpha=0.15, color='red', label='95% Confidence')
-plt.axvline(x=df['Date'].max(), color='grey', linestyle=':')
-plt.title('BAJAJ-AUTO - 30 Day Price Forecast')
+# plotting forecast with last 90 days
+plt.figure(figsize=(12,5))
+plt.plot(df['Date'].tail(90), df['Close'].tail(90), color='blue', label='Historical Data')
+plt.plot(future_dates, forecast_values, color='red', linestyle='--', label='Forecast')
+plt.fill_between(future_dates, conf[:, 0], conf[:, 1], alpha=0.2, color='red', label='Confidence Interval')
+plt.title('BAJAJ-AUTO - Next 30 Days Forecast')
 plt.xlabel('Date')
 plt.ylabel('Price (Rs)')
 plt.legend()
 plt.xticks(rotation=35)
-plt.grid(alpha=0.3)
+plt.grid(True)
 plt.tight_layout()
-plt.savefig('04_forecast.png', dpi=150)
+plt.savefig('04_forecast.png')
 plt.show()
-print("Saved: 04_forecast.png")
 
-# ── (iv) INTERPRETATION ────────────────────────────────────────
-change = ((fc_vals[-1] - close[-1]) / close[-1]) * 100
-print(f"\nLast Price: Rs{close[-1]:.2f}")
-print(f"Day 30 Forecast: Rs{fc_vals[-1]:.2f}")
-print(f"Change: {change:+.2f}%")
-print("Trend:", "UPWARD" if change > 1 else ("DOWNWARD" if change < -1 else "STABLE"))
+# interpretation
+last_price = close[-1]
+forecast_day30 = forecast_values[-1]
+change = ((forecast_day30 - last_price) / last_price) * 100
 
+print("\nInterpretation:")
+print("Last closing price = Rs", round(last_price, 2))
+print("Forecasted price after 30 days = Rs", round(forecast_day30, 2))
+print("Expected change =", round(change, 2), "%")
+
+if change > 1:
+    print("The model shows an UPWARD trend")
+elif change < -1:
+    print("The model shows a DOWNWARD trend")
+else:
+    print("The model shows a STABLE trend")
