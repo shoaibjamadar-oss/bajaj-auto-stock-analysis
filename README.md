@@ -1,10 +1,7 @@
 # BAJAJ-AUTO Stock Analysis — ARIMA Time Series Forecasting
 
-**Course:** Data Analytics and Visualization (CSC601)  
-**Roll No:** 22 | **Name:** JAMADAR SHOAIB ANWAR | **UIN:** 231A008  
+**Course:** Data Analytics and Visualization     
 **Stock Assigned:** BAJAJ-AUTO (NSE)  
-**Submission Date:** 17/03/2026  
-
 ---
 
 ## Files in this Repository
@@ -18,13 +15,6 @@
 - `04_forecast.png` — 30 day forecast graph
 
 ---
-
-## How to Run
-
-```
-pip install pandas numpy matplotlib statsmodels scikit-learn
-python analysis.py
-```
 
 ---
 
@@ -61,12 +51,7 @@ python analysis.py
 
 ## AI Ethics & Responsible Usage Declaration
 
-- Data used is publicly available historical stock price data from NSE India
-- No personal or sensitive data was used in this analysis
-- The forecast results are strictly for academic purposes only
-- This model should not be used for real financial investment decisions
-- Analysis was done independently on the assigned stock BAJAJ-AUTO only
-- Results have been reported honestly without any manipulation
+Please refer to the attached file: `AI_Ethics_Declaration_Page.docx`
 
 ---
 
@@ -76,5 +61,3 @@ python analysis.py
 2. statsmodels ARIMA — https://www.statsmodels.org/stable/generated/statsmodels.tsa.arima.model.ARIMA.html
 3. ADF Test — https://www.statsmodels.org/stable/generated/statsmodels.tsa.stattools.adfuller.html
 4. ARIMA Guide — https://www.geeksforgeeks.org/python-arima-model-for-time-series-forecasting/
-5. pandas docs — https://pandas.pydata.org/docs/
-6. matplotlib docs — https://matplotlib.org/stable/index.html
